@@ -1,0 +1,44 @@
+{
+  "$schema": "https://json.schemastore.org/package.json",
+  "name": "tbib-el-jou3",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@next-auth/prisma-adapter": "^1.0.7",
+    "@prisma/client": "^6.18.0",
+    "@tailwindcss/forms": "^0.5.10",
+    "@tailwindcss/typography": "^0.5.19",
+    "bcrypt": "^6.0.0",
+    "bcryptjs": "^3.0.3",
+    "framer-motion": "^12.23.24",
+    "lucide-react": "^0.548.0",
+    "next": "^15.5.6",
+    "next-auth": "^4.24.13",
+    "pg": "^8.16.3",
+    "prisma": "^6.18.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "react-hot-toast": "^2.6.0",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4.1.16",
+    "@tailwindcss/postcss7-compat": "^2.2.17",
+    "@types/bcrypt": "^6.0.0",
+    "@types/bcryptjs": "^2.4.6",
+    "@types/node": "^24.9.1",
+    "@types/pg": "^8.15.6",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19.2.2",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.31",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5.9.3"
+  }
+}
