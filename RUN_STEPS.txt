@@ -1,0 +1,26 @@
+# 1) Load .env.local into your shell (or set env vars)
+#    On Windows (PowerShell): $env:DATABASE_URL = "postgresql://user:pass@host:5432/db"
+#    Or just ensure .env.local exists in project root.
+
+# 2) Run DB migration to add lat/lng (requires psql in PATH)
+psql "$DATABASE_URL" -f migrations/20251110_add_restaurants_lat_lng.sql
+
+# 3) Create an admin user (uses scripts/create_admin.js)
+#    Example:
+node scripts/create_admin.js admin@example.com "StrongP@ssw0rd"
+
+# 4) Start dev server
+npm install   # if not yet installed
+npm run dev
+
+# 5) Sign in via browser:
+#    Open: http://localhost:3000/admin/signin?callbackUrl=/admin
+#    Use admin@example.com and the password you created.
+
+# 6) Quick API checks (example curl)
+curl -X POST -H "Content-Type: application/json" \
+  -d '{"email":"admin@example.com","password":"StrongP@ssw0rd"}' \
+  http://localhost:3000/api/auth/admin-login -i
+
+curl http://localhost:3000/api/restaurants
+curl http://localhost:3000/api/orders    # requires admin session/cookie

@@ -1,8 +1,8 @@
-import { NextAuthOptions } from "next-auth";
+import NextAuth, { NextAuthOptions } from "next-auth";
 import CredentialsProvider from "next-auth/providers/credentials";
 import GoogleProvider from "next-auth/providers/google";
-import bcrypt from "bcrypt";
 import { Pool } from "pg";
+import bcrypt from "bcrypt";
 
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
@@ -11,44 +11,27 @@ const pool = new Pool({
 export const authOptions: NextAuthOptions = {
   providers: [
     CredentialsProvider({
-      name: "credentials",
+      name: "Credentials",
       credentials: {
-        email: { label: "Email", type: "email" },
+        email: { label: "Email", type: "text" },
         password: { label: "Password", type: "password" },
       },
       async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) {
-          return null;
-        }
-
-        try {
-          const result = await pool.query(
-            "SELECT id, email, name, password FROM users WHERE email = $1",
-            [credentials.email]
-          );
-
-          const user = result.rows[0];
-          if (!user) {
-            return null;
-          }
-
-          const isPasswordValid = await bcrypt.compare(
-            credentials.password,
-            user.password
-          );
-          if (!isPasswordValid) {
-            return null;
-          }
-
-          return {
-            id: user.id.toString(),
-            email: user.email,
-            name: user.name,
-          };
-        } catch (error) {
-          console.error("Auth error:", error);
-          return null;
-        }
+        if (!credentials?.email || !credentials?.password) return null;
+        const res = await pool.query(
+          "SELECT id, email, password, name, role FROM users WHERE email = $1",
+          [credentials.email]
+        );
+        if (res.rows.length === 0) return null;
+        const user = res.rows[0];
+        const match = await bcrypt.compare(credentials.password, user.password);
+        if (!match) return null;
+        return {
+          id: String(user.id),
+          email: user.email,
+          name: user.name,
+          role: user.role || "customer",
+        };
       },
     }),
     GoogleProvider({
@@ -61,31 +44,39 @@ export const authOptions: NextAuthOptions = {
   },
   callbacks: {
     async jwt({ token, user }) {
+      // When user is present (on sign-in), ensure token carries userId and role
       if (user) {
-        token.id = user.id;
+        // user.id may be string or number depending on provider/authorize
+        token.userId = (user as any).id ?? token.sub;
+        token.role = (user as any).role ?? token.role ?? "customer";
+      } else {
+        // keep existing token values or defaults
+        token.userId = token.userId ?? token.sub;
+        token.role = token.role ?? "customer";
       }
       return token;
     },
     async session({ session, token }) {
-      if (token && session.user) {
-        (session.user as any).id = token.id as string;
-      }
+      // Populate session.user with id and role from token, avoid noisy logging
+      (session as any).user = {
+        ...(session as any).user,
+        id: token.userId,
+        role: token.role ?? "customer",
+      };
       return session;
     },
-    async signIn({ user, account, profile }) {
+    async signIn({ user, account }) {
       if (account?.provider === "google") {
         try {
-          // Check if user exists
           const existingUser = await pool.query(
             "SELECT id FROM users WHERE email = $1",
             [user.email]
           );
 
           if (existingUser.rows.length === 0) {
-            // Create new user for Google sign-in
             await pool.query(
-              "INSERT INTO users (email, name, provider, provider_id, email_verified, created_at) VALUES ($1, $2, $3, $4, $5, NOW())",
-              [user.email, user.name, "google", user.id, true]
+              "INSERT INTO users (email, name, provider, provider_id, email_verified, role, created_at) VALUES ($1, $2, $3, $4, $5, $6, NOW())",
+              [user.email, user.name, "google", user.id, true, "customer"]
             );
           }
         } catch (error) {
@@ -102,3 +93,5 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET,
 };
+
+export default NextAuth(authOptions);

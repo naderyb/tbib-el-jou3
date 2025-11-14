@@ -1,316 +1,232 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Star, 
-  Clock, 
-  MapPin, 
-  Phone, 
-  Heart, 
-  Share2, 
-  Filter,
-  Search,
-  Plus,
-  Minus,
-  ShoppingCart,
-  Info,
-  Award,
-  Truck,
-  Shield,
-  Users
-} from "lucide-react";
-import { useParams } from "next/navigation";
-import { useCart } from "../../context/CartContext";
-import Image from "next/image";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import { ChefHat, Clock, Star, Users, Search, Filter } from "lucide-react";
+import toast from "react-hot-toast";
 
-interface MenuItem {
+interface Category {
   id: string;
   name: string;
-  nameArabic?: string;
   description: string;
-  price: number;
-  image?: string;
-  isSpicy: boolean;
-  isVegetarian: boolean;
-  isHalal: boolean;
-  calories?: number;
-  prepTime?: number;
-  allergens?: string[];
-  ingredients?: string[];
-  category: {
-    name: string;
-  };
-  popular?: boolean;
-  discount?: number;
+  image: string;
+  icon: string;
+  restaurantCount: number;
+  avgDeliveryTime: string;
+  popularDishes: string[];
 }
 
 interface Restaurant {
-  id: string;
+  id: number;
   name: string;
-  nameArabic?: string;
-  description: string;
+  cuisine_type: string;
+  average_rating: number;
+  delivery_time: string;
   image: string;
-  coverImage?: string;
-  rating: number;
-  reviewCount: number;
-  deliveryTime: string;
-  deliveryFee: number;
-  minOrder: number;
-  address: string;
-  phone: string;
-  cuisine: string[];
-  menuItems: MenuItem[];
-  openingHours: {
-    [key: string]: string;
-  };
-  features: string[];
-  awards?: string[];
-  gallery?: string[];
 }
 
-export default function RestaurantDetail() {
-  const params = useParams();
-  const { addItem } = useCart();
-  const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [selectedCategory, setSelectedCategory] = useState("All");
+export default function CategoriesPage() {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [restaurants, setRestaurants] = useState<Restaurant[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [quantities, setQuantities] = useState<{ [key: string]: number }>({});
-  const [showGallery, setShowGallery] = useState(false);
-  const [selectedImage, setSelectedImage] = useState(0);
-  const [showInfo, setShowInfo] = useState(false);
-  const [activeTab, setActiveTab] = useState("menu");
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    if (params?.id) {
-      fetchRestaurant();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [params?.id]);
+    let mounted = true;
+    const loadCategories = async () => {
+      try {
+        const res = await fetch("/api/categories");
+        if (!res.ok) throw new Error("Failed to load categories");
+        const data = await res.json();
+        if (mounted) setCategories(data);
+      } catch (err) {
+        console.error("Error loading categories:", err);
+        toast.error("Failed to load categories");
+      }
+    };
+    loadCategories();
+    return () => { mounted = false; };
+  }, []);
 
-  const fetchRestaurant = async () => {
+  const fetchRestaurantsByCategory = async (categoryName: string) => {
+    setLoading(true);
     try {
-      // Enhanced mock data
-      const mockRestaurant: Restaurant = {
-        id: (params?.id as string) || "unknown",
-        name: "Dar El Bahdja",
-        nameArabic: "دار البهجة",
-        description: "Experience the authentic flavors of Algeria in our traditional restaurant. We serve classic dishes prepared with the finest ingredients and time-honored recipes passed down through generations.",
-        image: "/restaurants/dar-el-bahdja-cover.jpg",
-        coverImage: "/restaurants/dar-el-bahdja-interior.jpg",
-        rating: 4.8,
-        reviewCount: 324,
-        deliveryTime: "25-35 min",
-        deliveryFee: 0,
-        minOrder: 1500,
-        address: "15 Rue Didouche Mourad, Algiers",
-        phone: "+213 21 123 456",
-        cuisine: ["Algerian", "Traditional", "Halal"],
-        openingHours: {
-          monday: "10:00-22:00",
-          tuesday: "10:00-22:00",
-          wednesday: "10:00-22:00",
-          thursday: "10:00-22:00",
-          friday: "10:00-23:00",
-          saturday: "10:00-23:00",
-          sunday: "12:00-22:00"
-        },
-        features: ["Halal Certified", "Fast Delivery", "Fresh Ingredients", "Traditional Recipes"],
-        awards: ["Best Algerian Restaurant 2023", "Customer Choice Award"],
-        gallery: [
-          "/restaurants/dar-el-bahdja-1.jpg",
-          "/restaurants/dar-el-bahdja-2.jpg",
-          "/restaurants/dar-el-bahdja-3.jpg",
-          "/restaurants/dar-el-bahdja-4.jpg"
-        ],
-        menuItems: [
-          {
-            id: "1",
-            name: "Couscous Royal",
-            nameArabic: "كسكس ملكي",
-            description: "Traditional couscous with tender lamb, chicken, and seasonal vegetables. Served with rich broth and harissa on the side.",
-            price: 1800,
-            image: "/dishes/couscous-royal.jpg",
-            isSpicy: false,
-            isVegetarian: false,
-            isHalal: true,
-            calories: 650,
-            prepTime: 30,
-            allergens: ["gluten"],
-            ingredients: ["couscous", "lamb", "chicken", "vegetables", "spices"],
-            category: { name: "Main Dishes" },
-            popular: true
-          },
-          {
-            id: "2",
-            name: "Chorba Frik",
-            nameArabic: "شوربة فريك",
-            description: "Hearty traditional soup with green wheat, tender meat, and aromatic herbs. Perfect comfort food.",
-            price: 800,
-            image: "/dishes/chorba-frik.jpg",
-            isSpicy: true,
-            isVegetarian: false,
-            isHalal: true,
-            calories: 320,
-            prepTime: 20,
-            category: { name: "Soups" }
-          },
-          {
-            id: "3",
-            name: "Tajine Zitoune",
-            nameArabic: "طاجين زيتون",
-            description: "Slow-cooked chicken with green olives, preserved lemons, and traditional spices in a clay tajine.",
-            price: 1600,
-            image: "/dishes/tajine-zitoune.jpg",
-            isSpicy: false,
-            isVegetarian: false,
-            isHalal: true,
-            calories: 520,
-            prepTime: 45,
-            category: { name: "Main Dishes" }
-          },
-          {
-            id: "4",
-            name: "Bourek",
-            nameArabic: "بوراك",
-            description: "Crispy phyllo pastry filled with seasoned meat and herbs. Served with fresh salad.",
-            price: 600,
-            image: "/dishes/bourek.jpg",
-            isSpicy: false,
-            isVegetarian: false,
-            isHalal: true,
-            calories: 280,
-            prepTime: 15,
-            category: { name: "Appetizers" },
-            popular: true
-          },
-          {
-            id: "5",
-            name: "Makroud",
-            nameArabic: "مقروض",
-            description: "Traditional semolina pastries filled with dates and nuts, delicately flavored with orange blossom water.",
-            price: 400,
-            image: "/dishes/makroud.jpg",
-            isSpicy: false,
-            isVegetarian: true,
-            isHalal: true,
-            calories: 180,
-            prepTime: 10,
-            category: { name: "Desserts" }
-          },
-          {
-            id: "6",
-            name: "Mechoui",
-            nameArabic: "مشوي",
-            description: "Slow-roasted lamb shoulder with traditional Algerian spices. Served with roasted vegetables.",
-            price: 2200,
-            image: "/dishes/mechoui.jpg",
-            isSpicy: true,
-            isVegetarian: false,
-            isHalal: true,
-            calories: 780,
-            prepTime: 40,
-            category: { name: "Grilled" },
-            popular: true,
-            discount: 10
-          }
-        ]
-      };
-
-      setRestaurant(mockRestaurant);
-      setLoading(false);
+      const response = await fetch(`/api/restaurants?category=${encodeURIComponent(categoryName)}`);
+      if (response.ok) {
+        const data = await response.json();
+        setRestaurants(data);
+      } else {
+        toast.error("Failed to load restaurants");
+      }
     } catch (error) {
-      console.error("Error fetching restaurant:", error);
+      console.error("Error fetching restaurants:", error);
+      toast.error("Failed to load restaurants");
+    } finally {
       setLoading(false);
     }
   };
 
-  const increment = (id: string) => {
-    setQuantities(prev => ({ ...prev, [id]: (prev[id] || 0) + 1 }));
+  const handleCategoryClick = (category: Category) => {
+    setSelectedCategory(category.id);
+    fetchRestaurantsByCategory(category.name);
   };
 
-  const decrement = (id: string) => {
-    setQuantities(prev => {
-      const next = { ...prev, [id]: Math.max((prev[id] || 0) - 1, 0) };
-      return next;
-    });
-  };
-
-  const handleAddToCart = (item: MenuItem) => {
-    const qty = quantities[item.id] || 1;
-    addItem({ ...item, quantity: qty } as any);
-    setQuantities(prev => ({ ...prev, [item.id]: 0 }));
-  };
-
-  if (loading) {
-    return <div>Loading...</div>;
-  }
-
-  if (!restaurant) {
-    return <div>Restaurant not found.</div>;
-  }
-
-  const categories = Array.from(new Set(restaurant.menuItems.map(mi => mi.category.name)));
-  const filtered = restaurant.menuItems.filter(mi => {
-    const matchesCategory = selectedCategory === "All" || mi.category.name === selectedCategory;
-    const matchesSearch = mi.name.toLowerCase().includes(searchTerm.toLowerCase());
-    return matchesCategory && matchesSearch;
-  });
+  const filteredCategories = categories.filter(category =>
+    category.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (category.description || "").toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
   return (
-    <div>
-      <header>
-        <h1>{restaurant.name}</h1>
-        <p>{restaurant.description}</p>
-        <div>
-          <Star /> {restaurant.rating} ({restaurant.reviewCount})
-        </div>
-      </header>
-
-      <section>
-        <div>
-          <input
-            placeholder="Search dishes..."
-            value={searchTerm}
-            onChange={e => setSearchTerm(e.target.value)}
-          />
-          <select value={selectedCategory} onChange={e => setSelectedCategory(e.target.value)}>
-            <option value="All">All</option>
-            {categories.map(c => (
-              <option key={c} value={c}>{c}</option>
-            ))}
-          </select>
-        </div>
-
-        <div>
-          {filtered.map(item => (
-            <div key={item.id} style={{ border: "1px solid #ddd", padding: 8, margin: 8 }}>
-              <div style={{ display: "flex", gap: 8 }}>
-                {item.image && (
-                  <div style={{ width: 120, height: 80, position: "relative" }}>
-                    <Image src={item.image} alt={item.name} fill style={{ objectFit: "cover" }} />
-                  </div>
-                )}
-                <div>
-                  <h3>{item.name} {item.discount ? `(${item.discount}% off)` : ""}</h3>
-                  <p>{item.description}</p>
-                  <div>{item.price} DZD</div>
-                  <div>
-                    <button onClick={() => decrement(item.id)}><Minus size={14} /></button>
-                    <span style={{ margin: "0 8px" }}>{quantities[item.id] || 0}</span>
-                    <button onClick={() => increment(item.id)}><Plus size={14} /></button>
-                    <button onClick={() => handleAddToCart(item)} style={{ marginLeft: 12 }}>
-                      <ShoppingCart /> Add
-                    </button>
-                  </div>
+    <div className="min-h-screen pt-20 pb-12">
+      <div className="container mx-auto px-4">
+        {/* Search and Filter */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="mb-8"
+        >
+          <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-4">
+            <div className="w-full md:w-1/2 mb-4 md:mb-0">
+              <h1 className="text-4xl font-bold text-gray-900 mb-2">Categories</h1>
+              <p className="text-gray-600 text-sm">
+                Discover our categories and find the best restaurants near you.
+              </p>
+            </div>
+            <div className="w-full md:w-1/2 flex flex-col md:flex-row md:items-center md:justify-end">
+              <div className="relative w-full md:w-1/3 mr-2">
+                <input
+                  type="text"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Search categories..."
+                  className="w-full pr-10 pl-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent"
+                />
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                  <Search className="w-5 h-5 text-gray-400" />
                 </div>
               </div>
+              
+              <Link
+                href="/restaurants"
+                className="inline-flex items-center space-x-2 text-primary hover:text-primary-dark"
+              >
+                <Users className="w-5 h-5" />
+                <span>View All Restaurants</span>
+              </Link>
             </div>
-          ))}
-        </div>
-      </section>
+          </div>
+        </motion.div>
+
+        {/* Categories Grid */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12"
+        >
+          {filteredCategories.length > 0 ? (
+            filteredCategories.map((category) => (
+              <div
+                key={category.id}
+                className="glass-card p-6 flex flex-col justify-between h-full"
+              >
+                <div>
+                  <img
+                    src={category.image}
+                    alt={category.name}
+                    className="w-full h-32 object-cover rounded-lg mb-4"
+                  />
+                  
+                  <h3 className="text-xl font-semibold text-gray-900 mb-2">
+                    {category.name}
+                  </h3>
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                    {category.description}
+                  </p>
+                </div>
+                
+                <div className="flex items-center justify-between text-sm text-gray-600">
+                  <div className="flex items-center space-x-1">
+                    <Clock className="w-4 h-4" />
+                    <span>{category.avgDeliveryTime} min</span>
+                  </div>
+                  <div className="flex items-center space-x-1">
+                    <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                    <span className="font-semibold">
+                      {category.restaurantCount}
+                    </span>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => handleCategoryClick(category)}
+                  className="mt-4 w-full bg-gradient-to-r from-primary to-terracotta text-white py-2 px-4 rounded-lg font-semibold transition-all hover:shadow-lg"
+                >
+                  Explore Restaurants
+                </button>
+              </div>
+            ))
+          ) : (
+            <div className="col-span-full text-center py-16">
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">No categories found</h3>
+              <p className="text-gray-600">Try adjusting your search term.</p>
+            </div>
+          )}
+        </motion.div>
+
+        {/* Popular Restaurants */}
+        {restaurants.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="mb-12"
+          >
+            <h2 className="text-3xl font-bold text-gray-900 mb-8 font-poppins">
+              Popular Restaurants
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {restaurants.map((restaurant) => (
+                <div key={restaurant.id} className="glass-card p-6 card-hover">
+                  <img
+                    src={restaurant.image || "/placeholder-restaurant.jpg"}
+                    alt={restaurant.name}
+                    className="w-full h-32 object-cover rounded-lg mb-4"
+                  />
+                  
+                  <h4 className="text-lg font-semibold text-gray-900 mb-2">
+                    {restaurant.name}
+                  </h4>
+                  <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+                    {restaurant.cuisine_type}
+                  </p>
+                  
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center space-x-1">
+                      <Star className="w-4 h-4 text-yellow-400 fill-current" />
+                      <span className="font-semibold">
+                        {restaurant.average_rating.toFixed(1)}
+                      </span>
+                    </div>
+                    
+                    <span className="text-sm text-gray-500">
+                      {restaurant.delivery_time} min
+                    </span>
+                  </div>
+                  
+                  <Link
+                    href={`/restaurants/${restaurant.id}`}
+                    className="block w-full text-center bg-gradient-to-r from-primary to-terracotta text-white py-2 px-4 rounded-lg font-semibold transition-all hover:shadow-lg"
+                  >
+                    View Restaurant
+                  </Link>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+        )}
+      </div>
     </div>
   );
 }

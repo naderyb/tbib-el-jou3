@@ -13,22 +13,22 @@ export default function About() {
 
   const team = [
     {
-      name: "Ahmed Benali",
+      name: "YOUB Mahmoud Nader",
       role: "Founder & CEO",
       image: "👨‍💼",
       description: "Passionate about bringing authentic Algerian cuisine to everyone"
     },
     {
-      name: "Fatima Zahra",
+      name: "BENDALI-BRAHAM Aya Manar",
       role: "Head Chef Consultant",
       image: "👩‍🍳",
-      description: "Expert in traditional Algerian recipes and cooking techniques"
+      description: "Expert in traditional Algerian recipes"
     },
     {
-      name: "Omar Mansouri",
-      role: "Tech Lead",
-      image: "👨‍💻",
-      description: "Building the future of food delivery technology"
+      name: "BOUMEHDI Rym",
+      role: "Product Lead",
+      image: "👩‍💻",
+      description: "Ensuring a seamless experience for our users"
     }
   ];
 

@@ -43,13 +43,18 @@ export default function RootLayout({
       <body className={inter.className}>
         <SessionProvider>
           <div className="zelij-overlay">
+            
             <BackgroundAnimation />
             <CartProvider>
-              <div className="relative z-10">
-                <Navbar />
+                
                 <main className="min-h-screen">{children}</main>
+
+                {/* wrap Navbar with id so admin UI can hide it via DOM */}
+                <div id="site-navbar">
+                  <Navbar />
+                </div>
+
                 <Footer />
-              </div>
             </CartProvider>
           </div>
           <Toaster position="top-right" />
