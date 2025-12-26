@@ -26,8 +26,9 @@ type Order = {
   orderNumber: string;
   customer: { name?: string; phone?: string; email?: string };
   restaurant: {
-    [x: string]: any; name?: string 
-};
+    [x: string]: any;
+    name?: string;
+  };
   status: string;
   total: number;
   subtotal?: number;
@@ -846,7 +847,6 @@ export default function AdminClient() {
                               </button>
                             </div>
                           </td>
-                          
                         </motion.tr>
                       ))}
                     </AnimatePresence>
