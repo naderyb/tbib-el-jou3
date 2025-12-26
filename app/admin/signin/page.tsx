@@ -1,10 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import toast from "react-hot-toast";
 
 export default function AdminSignIn() {
+  return (
+    <Suspense
+      fallback={<div className="p-8 text-sm text-gray-500">Loading...</div>}
+    >
+      <AdminSignInInner />
+    </Suspense>
+  );
+}
+
+function AdminSignInInner() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -40,18 +50,37 @@ export default function AdminSignIn() {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
-      <form onSubmit={submit} className="w-full max-w-md bg-white p-8 rounded-xl shadow">
+      <form
+        onSubmit={submit}
+        className="w-full max-w-md bg-white p-8 rounded-xl shadow"
+      >
         <h2 className="text-2xl font-bold mb-4">Admin Sign in</h2>
         <div className="mb-4">
           <label className="block text-sm mb-1">Email</label>
-          <input required type="email" value={email} onChange={(e) => setEmail(e.target.value)} className="w-full px-3 py-2 border rounded" />
+          <input
+            required
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="w-full px-3 py-2 border rounded"
+          />
         </div>
         <div className="mb-4">
           <label className="block text-sm mb-1">Password</label>
-          <input required type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full px-3 py-2 border rounded" />
+          <input
+            required
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="w-full px-3 py-2 border rounded"
+          />
         </div>
         <div className="flex items-center justify-between">
-          <button type="submit" disabled={loading} className="px-4 py-2 bg-orange-500 text-white rounded">
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-4 py-2 bg-orange-500 text-white rounded"
+          >
             {loading ? "Signing in..." : "Sign in"}
           </button>
         </div>
