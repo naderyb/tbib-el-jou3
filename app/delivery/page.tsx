@@ -210,10 +210,7 @@ export default function DeliveryDashboard() {
         // NEW: when marking as delivered, update today's earnings & deliveries
         if (statusValue === "delivered") {
           const fee = Number(
-            updated.delivery_fee ??
-              updated.deliveryFee ??
-              updated.fee ??
-              0
+            updated.delivery_fee ?? updated.deliveryFee ?? updated.fee ?? 0
           );
           setTodayEarnings((prev) => prev + (Number.isFinite(fee) ? fee : 0));
           setTodayDeliveries((prev) => prev + 1);
