@@ -29,14 +29,15 @@ export default function DeliveryDashboard() {
     action?: "accept" | "delivered" | "picked_up";
   }>({ open: false });
 
-  // NEW: local stats increments when driver confirms delivery
-  const [confirmedTodayIds, setConfirmedTodayIds] = useState<number[]>([]);
-  const [manualStats, setManualStats] = useState({
-    earningsDelta: 0,
-    deliveriesDelta: 0,
-  });
+  // NEW: track today's earnings & deliveries in this UI
+  const [todayEarnings, setTodayEarnings] = useState<number>(0);
+  const [todayDeliveries, setTodayDeliveries] = useState<number>(0);
 
   const myUserId = (session as any)?.user?.id;
+
+  // track which orders this driver accepted in this session (in case backend
+  // doesn’t set delivery_user_id)
+  const [acceptedOrderIds, setAcceptedOrderIds] = useState<number[]>([]);
 
   const getCurrentPosition = () =>
     new Promise<{ lat: number; lng: number }>((resolve, reject) => {
@@ -79,44 +80,6 @@ export default function DeliveryDashboard() {
   useEffect(() => {
     fetchOrders();
   }, [fetchOrders]);
-
-  // Today stats: if logged in -> only own delivered orders, otherwise all delivered
-  const stats = useMemo(() => {
-    const today = new Date();
-    const start = new Date(
-      today.getFullYear(),
-      today.getMonth(),
-      today.getDate()
-    ).getTime();
-
-    let earnings = 0;
-    let deliveries = 0;
-
-    orders.forEach((o) => {
-      const t = new Date(o.created_at).getTime();
-      if (t < start) return;
-      if (o.status !== "delivered") return;
-
-      const isMine = myUserId
-        ? o.delivery_user_id && String(o.delivery_user_id) === String(myUserId)
-        : true; // when not logged in, count all delivered
-
-      if (!isMine) return;
-
-      // use delivery fee if available, fallback to total
-      const earningPerOrder = Number(
-        o.delivery_fee ?? o.deliveryFee ?? o.fee ?? o.total ?? 0
-      );
-      earnings += earningPerOrder;
-      deliveries += 1;
-    });
-
-    return { earnings, deliveries };
-  }, [orders, myUserId]);
-
-  // final values shown in header (base from statuses + manual confirms)
-  const totalEarnings = stats.earnings + manualStats.earningsDelta;
-  const totalDeliveries = stats.deliveries + manualStats.deliveriesDelta;
 
   // Realtime updates
   useRealtime("delivery", (msg: any) => {
@@ -163,22 +126,6 @@ export default function DeliveryDashboard() {
     setConfirm({ open: true, orderId, action: "picked_up" });
   };
 
-  const onConfirmDeliveryStats = (order: any) => {
-    if (!order) return;
-    const id = Number(order.id);
-    if (!id || confirmedTodayIds.includes(id)) return;
-
-    const earningPerOrder = Number(
-      order.delivery_fee ?? order.deliveryFee ?? order.fee ?? order.total ?? 0
-    );
-
-    setConfirmedTodayIds((prev) => [...prev, id]);
-    setManualStats((prev) => ({
-      earningsDelta: prev.earningsDelta + earningPerOrder,
-      deliveriesDelta: prev.deliveriesDelta + 1,
-    }));
-  };
-
   const performConfirmedAction = async () => {
     if (!confirm.orderId || !confirm.action) {
       setConfirm({ open: false });
@@ -219,8 +166,15 @@ export default function DeliveryDashboard() {
           prev.map((o) => (o.id === updated.id ? updated : o))
         );
         setSelectedOrder(updated);
+        // mark as accepted by this driver in this session
+        const numId = Number(updated.id);
+        if (!Number.isNaN(numId)) {
+          setAcceptedOrderIds((prev) =>
+            prev.includes(numId) ? prev : [...prev, numId]
+          );
+        }
         toast.success("Order accepted successfully");
-        fetchOrders();
+        fetchOrders(); // refresh so admin sees "accepted"
       } else {
         if (res.status === 401) {
           toast.error(
@@ -252,7 +206,21 @@ export default function DeliveryDashboard() {
           prev.map((o) => (o.id === updated.id ? updated : o))
         );
         setSelectedOrder(updated);
+
+        // NEW: when marking as delivered, update today's earnings & deliveries
+        if (statusValue === "delivered") {
+          const fee = Number(
+            updated.delivery_fee ??
+              updated.deliveryFee ??
+              updated.fee ??
+              0
+          );
+          setTodayEarnings((prev) => prev + (Number.isFinite(fee) ? fee : 0));
+          setTodayDeliveries((prev) => prev + 1);
+        }
+
         toast.success("Status updated successfully");
+        // reload so admin UI stays in sync (optional for stats now)
         fetchOrders();
       } else {
         if (res.status === 401) {
@@ -321,19 +289,23 @@ export default function DeliveryDashboard() {
     return configs[status as keyof typeof configs] || configs.default;
   };
 
-  // Active orders: all non-delivered / non-cancelled orders that are either:
-  // - assigned to this delivery user, or
-  // - unassigned (for setups without auth assigning)
+  // Active orders: all non-delivered / non-cancelled
   const myActiveOrders = useMemo(
     () =>
-      orders.filter((o) => {
-        if (o.status === "delivered" || o.status === "cancelled") return false;
-        if (!o.delivery_user_id) return true;
-        if (!myUserId) return true;
-        return String(o.delivery_user_id) === String(myUserId);
-      }),
-    [orders, myUserId]
+      orders.filter(
+        (o) => o.status !== "delivered" && o.status !== "cancelled"
+      ),
+    [orders]
   );
+
+  const isOrderMine = (order: any) => {
+    const byDb =
+      order.delivery_user_id &&
+      myUserId &&
+      String(order.delivery_user_id) === String(myUserId);
+    const byLocal = acceptedOrderIds.includes(Number(order.id));
+    return !!byDb || byLocal;
+  };
 
   const OrderCard = ({ order }: { order: any }) => {
     const customerName =
@@ -347,21 +319,17 @@ export default function DeliveryDashboard() {
       order.delivery_user_id &&
       String(order.delivery_user_id) === String(myUserId);
 
+    const mine = isOrderMine(order);
+
     const canAccept =
-      !isAssignedToMe &&
-      (!order.delivery_user_id ||
-        String(order.delivery_user_id) === String(myUserId)) &&
-      ["pending", "confirmed", "preparing", "accepted", "ready_for_pickup"].includes(
-        order.status
-      );
+      !mine && ["pending", "confirmed", "preparing"].includes(order.status);
 
-    const canPickup = isAssignedToMe &&
-      ["accepted", "ready_for_pickup"].includes(order.status);
+    const canPickup =
+      mine && ["accepted", "ready_for_pickup"].includes(order.status);
 
-    // allow Delivered directly after Accept too
+    // show Delivered after Accept OR when out_for_delivery
     const canDeliver =
-      isAssignedToMe &&
-      ["out_for_delivery", "accepted"].includes(order.status);
+      mine && ["accepted", "out_for_delivery"].includes(order.status);
 
     return (
       <div className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-100 overflow-hidden">
@@ -464,23 +432,12 @@ export default function DeliveryDashboard() {
             {canDeliver && (
               <button
                 onClick={() => onDeliveredClicked(order.id)}
-                className="flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                className="flex-1 px-4 py-2.5 bg-green-700 hover:bg-green-800 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
               >
                 <CheckCircle className="w-4 h-4" />
                 Delivered
               </button>
             )}
-
-            {order.status === "delivered" &&
-              !confirmedTodayIds.includes(Number(order.id)) && (
-                <button
-                  onClick={() => onConfirmDeliveryStats(order)}
-                  className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                >
-                  <CheckCircle className="w-4 h-4" />
-                  Confirm delivery
-                </button>
-              )}
 
             <button
               onClick={() => setSelectedOrder(order)}
@@ -528,7 +485,7 @@ export default function DeliveryDashboard() {
               <div className="flex gap-6">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-gray-900">
-                    {formatCurrency(totalEarnings)}
+                    {formatCurrency(todayEarnings)}
                   </div>
                   <div className="text-xs text-gray-500 flex items-center gap-1">
                     <TrendingUp className="w-3 h-3" />
@@ -537,7 +494,7 @@ export default function DeliveryDashboard() {
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-gray-900">
-                    {totalDeliveries}
+                    {todayDeliveries}
                   </div>
                   <div className="text-xs text-gray-500 flex items-center gap-1">
                     <Package className="w-3 h-3" />
@@ -756,22 +713,14 @@ export default function DeliveryDashboard() {
             {/* ACTION BUTTONS IN MODAL */}
             {(() => {
               const o = selectedOrder;
-              const isAssignedToMe =
-                o.delivery_user_id &&
-                String(o.delivery_user_id) === String(myUserId);
+              const mine = isOrderMine(o);
               const canAccept =
-                !isAssignedToMe &&
-                (!o.delivery_user_id ||
-                  String(o.delivery_user_id) === String(myUserId)) &&
-                ["pending", "confirmed", "preparing", "accepted", "ready_for_pickup"].includes(
-                  o.status
-                );
+                !mine &&
+                ["pending", "confirmed", "preparing"].includes(o.status);
               const canPickup =
-                isAssignedToMe &&
-                ["accepted", "ready_for_pickup"].includes(o.status);
+                mine && ["accepted", "ready_for_pickup"].includes(o.status);
               const canDeliver =
-                isAssignedToMe &&
-                ["out_for_delivery", "accepted"].includes(o.status);
+                mine && ["accepted", "out_for_delivery"].includes(o.status);
 
               return (
                 <div className="px-5 pb-5 pt-2 border-t flex flex-wrap gap-2">
@@ -797,22 +746,12 @@ export default function DeliveryDashboard() {
                   {canDeliver && (
                     <button
                       onClick={() => onDeliveredClicked(o.id)}
-                      className="flex-1 px-4 py-2.5 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                      className="flex-1 px-4 py-2.5 bg-green-700 hover:bg-green-800 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
                     >
                       <CheckCircle className="w-4 h-4" />
                       Delivered
                     </button>
                   )}
-                  {o.status === "delivered" &&
-                    !confirmedTodayIds.includes(Number(o.id)) && (
-                      <button
-                        onClick={() => onConfirmDeliveryStats(o)}
-                        className="flex-1 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
-                      >
-                        <CheckCircle className="w-4 h-4" />
-                        Confirm delivery
-                      </button>
-                    )}
                 </div>
               );
             })()}
