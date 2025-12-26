@@ -49,7 +49,15 @@ export async function POST(request: NextRequest) {
     const user = result.rows[0];
 
     return NextResponse.json(
-      { message: "User created successfully", user: { id: user.id, name: user.name, email: user.email, role: user.role } },
+      {
+        message: "User created successfully",
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+        },
+      },
       { status: 201 }
     );
   } catch (error) {
@@ -61,9 +69,11 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET(request: Request, context?: { params?: { id?: string } }) {
+export async function GET(request: Request) {
   try {
-    const restaurantId = context?.params?.id;
+    const url = new URL(request.url);
+    const idParam = url.searchParams.get("id");
+    const restaurantId = idParam ? parseInt(idParam) : null;
 
     if (restaurantId) {
       // Get restaurant details
@@ -79,12 +89,14 @@ export async function GET(request: Request, context?: { params?: { id?: string }
       );
 
       if (restaurantResult.rows.length === 0) {
-        return NextResponse.json({ error: "Restaurant not found" }, { status: 404 });
+        return NextResponse.json(
+          { error: "Restaurant not found" },
+          { status: 404 }
+        );
       }
 
       const restaurant = restaurantResult.rows[0];
 
-      // Get menu items
       const menuResult = await pool.query(
         `SELECT * FROM menu_items 
          WHERE restaurant_id = $1 
@@ -92,7 +104,6 @@ export async function GET(request: Request, context?: { params?: { id?: string }
         [restaurantId]
       );
 
-      // Get recent reviews
       const reviewsResult = await pool.query(
         `SELECT rv.*, u.name as user_name
          FROM reviews rv
@@ -106,30 +117,26 @@ export async function GET(request: Request, context?: { params?: { id?: string }
       return NextResponse.json({
         ...restaurant,
         menu_items: menuResult.rows,
-        reviews: reviewsResult.rows
+        reviews: reviewsResult.rows,
       });
     } else {
       // No id provided -> return delivery users
-      try {
-        // Prefer joining delivery_drivers -> users if present, else fall back to users.role = 'delivery'
-        const res = await pool.query(
-          `SELECT u.id, u.name, u.email, u.phone, d.id as driver_id
-           FROM users u
-           LEFT JOIN delivery_drivers d ON d.user_id = u.id
-           WHERE u.role = 'delivery'
-           ORDER BY u.name`
-        );
-        return NextResponse.json(res.rows);
-      } catch (err) {
-        console.error(err);
-        return NextResponse.json({ error: "Failed to fetch delivery users" }, { status: 500 });
-      }
+      const res = await pool.query(
+        `SELECT u.id, u.name, u.email, u.phone, d.id as driver_id
+         FROM users u
+         LEFT JOIN delivery_drivers d ON d.user_id = u.id
+         WHERE u.role = 'delivery'
+         ORDER BY u.name`
+      );
+
+      return NextResponse.json(res.rows);
     }
   } catch (error) {
-    console.error("Restaurant fetch error:", error);
+    console.error("GET /auth/register error:", error);
     return NextResponse.json(
-      { error: "Failed to fetch restaurant" },
+      { error: "Failed to fetch data" },
       { status: 500 }
     );
   }
 }
+
