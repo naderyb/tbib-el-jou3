@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Star,
@@ -53,6 +54,7 @@ interface CartItem extends MenuItem {
 export default function RestaurantDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { data: session, status } = useSession();
   const [restaurant, setRestaurant] = useState<Restaurant | null>(null);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -167,6 +169,17 @@ export default function RestaurantDetailPage() {
   const totalWithDelivery = cartTotal + deliveryFee;
 
   const confirmOrder = async () => {
+    if (status === "loading") {
+      toast.error("Please wait while we check your session");
+      return;
+    }
+
+    if (!session) {
+      toast.error("You need to sign in to place an order");
+      router.push("/signin");
+      return;
+    }
+
     if (!cart.length) {
       toast.error("Your cart is empty");
       return;
