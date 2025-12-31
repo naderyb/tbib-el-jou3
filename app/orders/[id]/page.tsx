@@ -91,7 +91,7 @@ export default function OrderDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen pt-24 pb-12 bg-gradient-to-br from-orange-50 via-white to-amber-50">
+      <div className="min-h-screen pt-24 pb-12">
         <div className="container mx-auto px-4 max-w-6xl">
           <div className="bg-white rounded-2xl p-8 shadow-lg border border-gray-100">
             <div className="flex items-center justify-center space-x-2">
