@@ -1400,7 +1400,7 @@ export default function AdminClient() {
               initial={{ scale: 0.95 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.95 }}
-              className="bg-white rounded-xl p-6 w-full max-w-2xl"
+              className="bg-white rounded-xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto"
             >
               <h3 className="text-xl font-semibold mb-4">
                 {editingRestaurant ? "Edit Restaurant" : "Create Restaurant"}
@@ -1662,7 +1662,7 @@ export default function AdminClient() {
               initial={{ scale: 0.95 }}
               animate={{ scale: 1 }}
               exit={{ scale: 0.95 }}
-              className="bg-white rounded-xl p-6 w-full max-w-lg"
+              className="bg-white rounded-xl p-6 w-full max-w-lg max-h-[80vh] overflow-y-auto"
             >
               <h3 className="text-xl font-semibold mb-4">
                 {editingMenuItem ? "Edit Menu Item" : "Create Menu Item"}
