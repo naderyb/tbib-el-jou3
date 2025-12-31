@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 
 export default function RestaurantPage() {
   const params = useParams();
   const router = useRouter();
+  const { data: session, status } = useSession();
   const id = params?.id as string;
 
   const [loading, setLoading] = useState(true);
@@ -100,6 +102,17 @@ export default function RestaurantPage() {
   const total = subtotal + (Number.isFinite(deliveryFee) ? deliveryFee : 0);
 
   const handleCheckout = async () => {
+    if (status === "loading") {
+      alert("Please wait while we check your session");
+      return;
+    }
+
+    if (!session) {
+      alert("You need to sign in to place an order");
+      router.push("/signin");
+      return;
+    }
+
     if (checkoutLoading) return;
     if (!restaurant) return;
     if (cart.length === 0) {
